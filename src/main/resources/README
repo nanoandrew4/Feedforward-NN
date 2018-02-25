@@ -1,0 +1,2 @@
+data.la -> Labels corresponding to the accompanying digits, from the MNIST dataset
+data.nu -> Digit images corresponding to the accompanying labels, from the MNIST dataset
