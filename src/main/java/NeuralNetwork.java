@@ -103,9 +103,13 @@ public class NeuralNetwork implements Serializable {
     }
 
     /**
-     * @param input
-     * @param expectedOut
-     * @return
+     * Computes and returns the cost of the network. This particular implementation sums the difference between the
+     * output layer and the expected output layer squared. The higher the value, the worse the performance of the
+     * network
+     *
+     * @param input Input to forward propagate with
+     * @param expectedOut Expected output to compute cost
+     * @return Cost of the network
      */
     private double cost(double[] input, double[] expectedOut) {
         double cost = 0f;
@@ -193,7 +197,7 @@ public class NeuralNetwork implements Serializable {
      */
     double test(double[][] testInputs, int[] expectedOut) {
 
-        gradientCheck(testInputs[0], desiredOutputLayerActiv(expectedOut[0], activ[activ.length - 1].length));
+        gradientCheck(testInputs[0], desiredOutputLayerActiv(activ[activ.length - 1].length, expectedOut[0]));
 
         double hits = 0;
 
@@ -210,6 +214,17 @@ public class NeuralNetwork implements Serializable {
         return (hits / testInputs.length) * 100f;
     }
 
+    /**
+     * Compare the gradient for a set of input values to approximations. Each weight is perturbed positively and
+     * negatively, and the cost calculated after each perturbation. The slope of the line connecting the two costs
+     * should be within Math.pow(1, -8) of the gradient computed using gradient descent of that same weight.
+     * The perturbation should be a small number.
+     * If the difference between the actual and approximate gradients is more than Math.pow(1, -8), there might be
+     * an error in the gradient descent algorithm.
+     *
+     * @param input Input set to check gradient descent algorithm with
+     * @param output Expected output for the 'input' set, to calculate gradient and cost
+     */
     private void gradientCheck(double[] input, double[] output) {
         double e = Math.pow(1, -4);
 
@@ -241,9 +256,18 @@ public class NeuralNetwork implements Serializable {
         }
     }
 
-    private double[] desiredOutputLayerActiv(int n, int size) {
+    /**
+     * Returns an array representation of the desired output for the output layer, setting the values
+     * at the indices passed to 1, and the rest to 0.
+     *
+     * @param neurons Neurons that should be activated on the output layer
+     * @param size Size of the output layer
+     * @return Array representation of the desired output layer
+     */
+    private double[] desiredOutputLayerActiv(int size, int... neurons) {
         double[] d = new double[size];
-        d[n] = 1.0;
+        for (int n : neurons)
+            d[n] = 1.0;
         return d;
     }
 
