@@ -58,8 +58,8 @@ public class IOHandler {
      * @param path Path to serialized file
      * @return 2D float array stored in file at 'path', representing the digit images
      */
-    protected static float[][] deserializeNums(String path) {
-        return (float[][]) deserialize(path);
+    protected static double[][] deserializeNums(String path) {
+        return (double[][]) deserialize(path);
     }
 
     /**
@@ -71,8 +71,8 @@ public class IOHandler {
      * @param is Input stream to read file from
      * @return 2D float array read from 'is', representing the digit images
      */
-    protected static float[][] deserializeNums(InputStream is) {
-        return (float[][]) deserialize(is);
+    protected static double[][] deserializeNums(InputStream is) {
+        return (double[][]) deserialize(is);
     }
 
     /**

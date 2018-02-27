@@ -12,7 +12,7 @@ public class Main {
         NeuralNetwork nn;
 
         if (args.length > 1) {
-            float LEARNING_RATE = Float.valueOf(args[0]);
+            double LEARNING_RATE = Float.valueOf(args[0]);
             int[] neuronsPerLayer = new int[args.length - 1];
             for (int i = 1; i < args.length; i++)
                 neuronsPerLayer[i - 1] = Integer.valueOf(args[i]);
@@ -23,10 +23,10 @@ public class Main {
 
         ClassLoader classLoader = Main.class.getClassLoader();
 
-        int[] labels = deserializeLabels(classLoader.getResourceAsStream("training/data.la"));
-        float[][] numberData = deserializeNums(classLoader.getResourceAsStream("training/data.nu"));
+        int[] labels = deserializeLabels(classLoader.getResourceAsStream("training/labels.tr"));
+        double[][] numberData = deserializeNums(classLoader.getResourceAsStream("training/nums.tr"));
 
-        float[][] expectedOut = new float[labels.length][10];
+        double[][] expectedOut = new double[labels.length][10];
         for (int i = 0; i < labels.length; i++)
             for (int j = 0; j < expectedOut[0].length; j++)
                 if (j == labels[i])
@@ -34,24 +34,24 @@ public class Main {
 
         nn.train(numberData, expectedOut);
 
-        labels = deserializeLabels(classLoader.getResourceAsStream("testing/data.la"));
-        numberData = deserializeNums(classLoader.getResourceAsStream("testing/data.nu"));
+        labels = deserializeLabels(classLoader.getResourceAsStream("testing/labels.te"));
+        numberData = deserializeNums(classLoader.getResourceAsStream("testing/nums.te"));
 
-        float accuracy = nn.test(numberData, labels);
+        double accuracy = nn.test(numberData, labels);
 
         if (accuracy > 90.0)
             serialize("ffnn.nn", nn);
 
         System.out.println("Testing finished. Network accuracy: " + accuracy + "%");
-        System.out.println("Total time taken: " + (float) (System.currentTimeMillis() - start) / 60000f + " minutes");
+        System.out.println("Total time taken: " + (double) (System.currentTimeMillis() - start) / 60000f + " minutes");
     }
 
-    private static float[][] convertImages(List<int[][]> images) {
-        float[][] inputs = new float[images.size()][images.get(0).length * images.get(0).length];
+    private static double[][] convertImages(List<int[][]> images) {
+        double[][] inputs = new double[images.size()][images.get(0).length * images.get(0).length];
         for (int i = 0; i < images.size(); i++)
             for (int c = 0; c < images.get(0).length; c++)
                 for (int r = 0; r < images.get(0).length; r++)
-                    inputs[i][(c * images.get(0).length) + r] = (float) images.get(i)[c][r] / 255f;
+                    inputs[i][(c * images.get(0).length) + r] = (double) images.get(i)[c][r] / 255f;
         return inputs;
     }
 }
