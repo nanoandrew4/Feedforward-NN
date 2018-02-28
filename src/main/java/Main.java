@@ -1,57 +1,206 @@
 package main.java;
 
-import java.util.List;
-
-import static main.java.IOHandler.*;
+import java.util.Scanner;
 
 public class Main {
+
+    private static String layout = "784 -> 128 -> 10", iters = "4", learningRate = "0.3",
+            trainingInFile = "training/nums.tr", trainingOutFile = "training/labels.tr",
+            testingInFile = "testing/nums.te", testingOutFile = "testing/labels.te";
+
+    private static double[][] trainingIn = {}, testingIn = {}, trainingOut = {}, testingOut = {};
+
+    private static Scanner in = new Scanner(System.in);
+
     public static void main(String... args) {
 
-        long start = System.currentTimeMillis();
+        printNetworkInfo();
 
-        NeuralNetwork nn;
+        while (true) {
+            System.out.println("Hyper-parameter setup");
+            System.out.println("1. Modify network layout");
+            System.out.println("2. Modify iterations");
+            System.out.println("3. Modify learning rate");
+            System.out.println("8. Start using this network");
+            System.out.println("9. Print network layout");
+            System.out.println("0. Exit\n");
 
-        if (args.length > 1) {
-            double LEARNING_RATE = Float.valueOf(args[0]);
-            int[] neuronsPerLayer = new int[args.length - 1];
-            for (int i = 1; i < args.length; i++)
-                neuronsPerLayer[i - 1] = Integer.valueOf(args[i]);
-            nn = new NeuralNetwork(LEARNING_RATE, neuronsPerLayer);
-        } else {
-            nn = (NeuralNetwork) deserialize("ffnn.nn");
+            System.out.print(">> ");
+            int opt = in.nextInt();
+            in.nextLine();
+
+            switch (opt) {
+                case 1:
+                    System.out.print("Enter number of neurons per layer, separated by \'->\': ");
+                    layout = in.nextLine().trim();
+                    break;
+                case 2:
+                    System.out.print("Enter number of iterations to perform on training set: ");
+                    iters = in.nextLine().trim();
+                    break;
+                case 3:
+                    System.out.print("Enter desired learning rate: ");
+                    learningRate = in.nextLine().trim();
+                    break;
+                case 8:
+                    System.out.println();
+                    startNetwork();
+                    break;
+                case 9:
+                    System.out.println("\n");
+                    printNetworkInfo();
+                    break;
+                case 0:
+                    return;
+            }
+
+            System.out.println("\n");
         }
+    }
+    
+    private static void startNetwork() {
+        NeuralNetwork nn = new NeuralNetwork(Double.valueOf(learningRate), Integer.valueOf(iters), getLayout(layout));
+        String str;
 
-        ClassLoader classLoader = Main.class.getClassLoader();
+        while (true) {
+            System.out.println("\nNetwork options: ");
+            System.out.println("1. Train and test");
+            System.out.println("2. Train");
+            System.out.println("3. Test");
+            System.out.println("4. Modify training sets");
+            System.out.println("5. Modify testing sets");
+            System.out.println("6. (re)Load data sets");
+            System.out.println("0. Exit\n");
 
-        int[] labels = deserializeLabels(classLoader.getResourceAsStream("training/labels.tr"));
-        double[][] numberData = deserializeNums(classLoader.getResourceAsStream("training/nums.tr"));
+            System.out.print(">> ");
+            int opt = in.nextInt();
+            in.nextLine();
+            System.out.println();
 
-        double[][] expectedOut = new double[labels.length][10];
-        for (int i = 0; i < labels.length; i++)
-            for (int j = 0; j < expectedOut[0].length; j++)
-                if (j == labels[i])
-                    expectedOut[i][j] = 1f;
-
-        nn.train(numberData, expectedOut);
-
-        labels = deserializeLabels(classLoader.getResourceAsStream("testing/labels.te"));
-        numberData = deserializeNums(classLoader.getResourceAsStream("testing/nums.te"));
-
-        double accuracy = nn.test(numberData, labels);
-
-        if (accuracy > 90.0)
-            serialize("ffnn.nn", nn);
-
-        System.out.println("Testing finished. Network accuracy: " + accuracy + "%");
-        System.out.println("Total time taken: " + (double) (System.currentTimeMillis() - start) / 60000f + " minutes");
+            switch (opt) {
+                case 1:
+                    if (trainingIn.length == 0 || trainingOut.length == 0 || testingIn.length == 0 || testingOut.length == 0)
+                        loadData("t");
+                    System.out.println("Training data files: \"" + trainingInFile + "\" - \"" + trainingOutFile + "\"");
+                    System.out.println("Testing data files: \"" + testingInFile + "\" - \"" + testingOutFile + "\"");
+                    nn.train(trainingIn, trainingOut);
+                    nn.test(testingIn, testingOut);
+                    break;
+                case 2:
+                    if (trainingIn.length == 0 || trainingOut.length == 0)
+                        loadData("tr");
+                    System.out.println("Training data files: \"" + trainingInFile + "\" - \"" + trainingOutFile + "\"");
+                    nn.train(trainingIn, trainingOut);
+                    break;
+                case 3:
+                    if (testingIn.length == 0 || testingOut.length == 0)
+                        loadData("te");
+                    System.out.println("Testing data files: \"" + testingInFile + "\" - \"" + testingOutFile + "\"");
+                    nn.test(testingIn, testingOut);
+                    break;
+                case 4:
+                    requestFiles("training");
+                    str = in.nextLine().trim();
+                    trainingInFile = str.split(" ")[0];
+                    trainingOutFile = str.split(" ")[1];
+                    break;
+                case 5:
+                    requestFiles("testing");
+                    str = in.nextLine().trim();
+                    Main.testingInFile = str.split(" ")[0];
+                    Main.testingOutFile = str.split(" ")[1];
+                    break;
+                case 6:
+                    System.out.println("Enter \'t\' to load both training and testing data, \'tr\' to load training data" +
+                            "only, or \'te\' to load testing data only");
+                    String dataOpt = in.nextLine().trim().toLowerCase();
+                    loadData(dataOpt);
+                    break;
+                case 0:
+                    return;
+            }
+        }
     }
 
-    private static double[][] convertImages(List<int[][]> images) {
-        double[][] inputs = new double[images.size()][images.get(0).length * images.get(0).length];
-        for (int i = 0; i < images.size(); i++)
-            for (int c = 0; c < images.get(0).length; c++)
-                for (int r = 0; r < images.get(0).length; r++)
-                    inputs[i][(c * images.get(0).length) + r] = (double) images.get(i)[c][r] / 255f;
-        return inputs;
+    private static void printNetworkInfo() {
+        System.out.println("Network information:\n");
+        System.out.println("Network layout: \"" + layout + "\"");
+        System.out.println("Serialized training files (input, output): \"" + trainingInFile + "\" - \"" + trainingOutFile + "\"");
+        System.out.println("Serialized testing files (input, output): \"" + testingInFile + "\" - \"" + testingOutFile + "\"");
+        System.out.println("Iterations through the training set: " + iters);
+        System.out.println("Learning rate of the network: " + learningRate);
+        System.out.println();
+    }
+
+    private static void requestFiles(String fileType) {
+        System.out.println("Enter the filename of the serialized " + fileType
+                + " input, and the filename of serialized expected " + fileType + " output");
+        System.out.println("The input and output data must be serialized as a double[][]");
+    }
+
+    private static int[] getLayout(String layoutStr) {
+        String[] str = layoutStr.split("->");
+        int[] layout = new int[str.length];
+
+        for (int l = 0; l < str.length; l++)
+            layout[l] = Integer.valueOf(str[l].trim());
+
+        return layout;
+    }
+
+    private static void loadData(String dataToLoad) {
+        Logger.print("Loading data... ");
+        Spinner.spin();
+        if ("t".equals(dataToLoad) || "tr".equals(dataToLoad)) {
+            trainingIn = IOHandler.deserialize2DDoubleArr(trainingInFile);
+            trainingOut = IOHandler.deserialize2DDoubleArr(trainingOutFile);
+        }
+        if ("t".equals(dataToLoad) || "te".equals(dataToLoad)) {
+            testingIn = IOHandler.deserialize2DDoubleArr(Main.testingInFile);
+            testingOut = IOHandler.deserialize2DDoubleArr(Main.testingOutFile);
+        }
+        Spinner.spin();
+        Logger.print("Done\n");
+    }
+}
+
+/**
+ * Simple spinning icon made out of characters. Used while program is running long computations, so the user
+ * feels like the program is running something vs just being stuck. Pretty meaningless, but hey, looks good!
+ */
+class Spinner extends Thread {
+    private static Thread t;
+    private static Spinner s;
+
+    private char[] chars = {'|', '/', '-', '\\'};
+    private boolean spinning = true;
+
+    @Override
+    public void run() {
+        for (int i = 0; spinning; i++) {
+            System.out.print(chars[i % chars.length]);
+            try {
+                sleep(500);
+            } catch (InterruptedException e) {e.printStackTrace();}
+            System.out.print("\b \b");
+        }
+    }
+
+    private void end() {
+        spinning = false;
+        try {
+            t.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void spin() {
+        if (t == null || !s.spinning) {
+            t = new Thread(s = new Spinner());
+            t.setDaemon(true);
+            t.start();
+        } else
+            s.end();
     }
 }

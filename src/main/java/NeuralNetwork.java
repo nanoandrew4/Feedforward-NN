@@ -1,6 +1,7 @@
 package main.java;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 public class NeuralNetwork implements Serializable {
 
@@ -18,27 +19,29 @@ public class NeuralNetwork implements Serializable {
      */
     private double[][][] weights;
 
-    // Rate at which the network learns. Values > 0.35 seem to degrade accuracy a lot, so small steps are optimal.
-    private double LEARNING_RATE = 0.3f;
+    // Rate at which the network learns. 0.3 seems to yield pretty good results.
+    private double learningRate;
 
     /*
      * Iterations to train the network on. Although the same data is used on each iteration, it significantly improves
-     * accuracy to train it multiple times, so it has multiple chances to adjust.
+     * accuracy to train it multiple times, so it has multiple chances to adjust. However, too many iterations will
+     * lead it to memorize the training data, and will generalize poorly.
      */
-    private int MAX_ITERATIONS = 4;
+    private int iterations;
 
     /**
      * Initializes Neural Network according to passed in parameters, and randomizes all the weights.
      *
-     * @param LEARNING_RATE   Rate at which the network learns ( < 0.4 recommended)
+     * @param learningRate   Rate at which the network learns ( < 0.4 recommended)
      * @param neuronsPerLayer Number of neurons per layer that will make up the network
      */
-    NeuralNetwork(double LEARNING_RATE, int[] neuronsPerLayer) {
+    NeuralNetwork(double learningRate, int iterations, int[] neuronsPerLayer) {
         Logger.print("Initializing NN... Structure: ");
         for (int i = 0; i < neuronsPerLayer.length; i++)
             Logger.print(neuronsPerLayer[i] + (i == neuronsPerLayer.length - 1 ? " | " : " -> "));
 
-        this.LEARNING_RATE = LEARNING_RATE;
+        this.learningRate = learningRate;
+        this.iterations = iterations;
 
         if (neuronsPerLayer.length < 2) {
             System.out.println("Network must be composed of at least 2 layers");
@@ -62,12 +65,6 @@ public class NeuralNetwork implements Serializable {
         Logger.print("Done\n");
     }
 
-    private NeuralNetwork(double LEARNING_RATE, double[][] activ, double[][][] weights) {
-        this.LEARNING_RATE = LEARNING_RATE;
-        this.activ = activ;
-        this.weights = weights;
-    }
-
     private double sigmoid(double f) {
         return (1d / (1d + Math.exp(-f)));
     }
@@ -84,7 +81,7 @@ public class NeuralNetwork implements Serializable {
      *
      * @param inputs Array of data to be input (should be the same size as the first layer of the network)
      */
-    void forward(double[] inputs) {
+    private void forward(double[] inputs) {
 
         // Zero array
         for (int l = 0; l < activ.length; l++)
@@ -125,6 +122,7 @@ public class NeuralNetwork implements Serializable {
      * In essence, this function is what makes the network 'learn', by adjusting the weights connecting the various
      * layers.
      *
+     * @param input Input to perform forward propagation with
      * @param expected Values to be expected in last layer of activations array after forward propagation
      */
     private double[][] gradientDescent(double[] input, double[] expected) {
@@ -137,9 +135,9 @@ public class NeuralNetwork implements Serializable {
         double[][] dweights = new double[weights.length][];
         dweights[dweights.length - 1] = new double[activ[activ.length - 1].length];
 
-        // Adjust second-last-to-last layer weights, using dCost
+        // Adjust second-last-to-last layer weights
         for (int n = 0; n < activ[activ.length - 1].length; n++) {
-            dweights[dweights.length - 1][n] = LEARNING_RATE * dSigmoid(activ[activ.length - 1][n]) * (activ[activ.length - 1][n] - expected[n]);
+            dweights[dweights.length - 1][n] = learningRate * dSigmoid(activ[activ.length - 1][n]) * (activ[activ.length - 1][n] - expected[n]);
             for (int pn = 0; pn < activ[activ.length - 2].length; pn++)
                 weights[weights.length - 1][pn][n] -= dweights[dweights.length - 1][n] * activ[activ.length - 2][pn];
         }
@@ -150,7 +148,7 @@ public class NeuralNetwork implements Serializable {
             for (int n = 0; n < activ[l + 1].length; n++) {
                 // Recalculate delta for connection between 'n' and all neurons on the next layer ('nn')
                 for (int nn = 0; nn < activ[l + 2].length; nn++)
-                    dweights[l][n] += LEARNING_RATE * dSigmoid(activ[l + 1][n]) * weights[l + 1][n][nn] * dweights[l + 1][nn];
+                    dweights[l][n] += learningRate * dSigmoid(activ[l + 1][n]) * weights[l + 1][n][nn] * dweights[l + 1][nn];
                 // Apply delta to appropriate weights
                 for (int pn = 0; pn < activ[l].length; pn++)
                     weights[l][pn][n] -= dweights[l][n] * activ[l][pn];
@@ -164,7 +162,7 @@ public class NeuralNetwork implements Serializable {
      * Trains the network given an array of inputs and an array of expected outputs. For each element, calls forward()
      * with a given input, and backpropagates with its respective expected output.
      * <p>
-     * Will iterate MAX_ITERATIONS times through the same data, so the network can learn better.
+     * Will iterate iterations times through the same data, so the network can learn better.
      *
      * @param inputs  Array of inputs. Each sub-array should contain the same number of elements as the input layer
      * @param outputs Array of expected outputs. Each sub-array should contain the same number of elements as the
@@ -176,14 +174,15 @@ public class NeuralNetwork implements Serializable {
             return;
         }
 
-        Logger.print("Starting training... This may take a long time\n");
-        System.out.println("Training network on " + inputs.length + " samples");
-        System.out.println("Total iterations on this training data: " + MAX_ITERATIONS);
+        Logger.print("Training network over " + iterations + " iterations on " + inputs.length + " samples... ");
+        Spinner.spin();
 
-        for (int iters = 0; iters < MAX_ITERATIONS; iters++)
+        for (int iters = 0; iters < iterations; iters++)
             for (int i = 0; i < inputs.length; i++)
                 gradientDescent(inputs[i], outputs[i]);
-        Logger.print("Training finished\n");
+
+        Spinner.spin();
+        Logger.print("Done\n");
     }
 
     /**
@@ -193,25 +192,23 @@ public class NeuralNetwork implements Serializable {
      * @param testInputs  Array of inputs. Each sub-array should contain the same number of elements as the input layer
      * @param expectedOut Array of expected outputs. Each sub-array should contain the same number of elements as the
      *                    output layer
-     * @return Float between 0-100 representing the accuracy of the network on the test data
      */
-    double test(double[][] testInputs, int[] expectedOut) {
+    void test(double[][] testInputs, double[][] expectedOut) {
 
-        gradientCheck(testInputs[0], desiredOutputLayerActiv(activ[activ.length - 1].length, expectedOut[0]));
+        gradientCheck(testInputs[0], expectedOut[0]);
 
         double hits = 0;
 
-        Logger.print("Starting testing... Testing network on " + testInputs.length + " samples | ");
+        Logger.print("Starting testing... Testing network on " + testInputs.length + " samples... ");
+        Spinner.spin();
 
-        for (int i = 1; i < testInputs.length; i++) {
-            forward(testInputs[i]);
-
-            if (getOutputNeuron() == expectedOut[i])
+        for (int i = 1; i < testInputs.length; i++)
+            if (Arrays.equals(expectedOut[i], getOutputLayerActiv(testInputs[i], 1)))
                 hits++;
-        }
 
+        Spinner.spin();
         Logger.print("Done\n");
-        return (hits / testInputs.length) * 100f;
+        System.out.println("Network accuracy: " + ((hits / testInputs.length) * 100f) + "%");
     }
 
     /**
@@ -226,10 +223,15 @@ public class NeuralNetwork implements Serializable {
      * @param output Expected output for the 'input' set, to calculate gradient and cost
      */
     private void gradientCheck(double[] input, double[] output) {
+        Logger.print("Checking gradient descent algorithm quality... ");
+        Spinner.spin();
+
         double e = Math.pow(1, -4);
 
         double[][] dweights = gradientDescent(input, output);
         double[][] dweightsApprox = new double[dweights.length][];
+
+        boolean pass = true;
 
         for (int l = 0; l < dweights.length; l++) {
             dweightsApprox[l] = new double[dweights[l].length];
@@ -247,45 +249,50 @@ public class NeuralNetwork implements Serializable {
                     // Calculates what the gradient should be
                     dweightsApprox[l][n] = (loss1 - loss2) / (2 * e);
                     if (Math.abs(dweightsApprox[l][n] - dweights[l][n]) > Math.pow(1, -8))
-                        System.out.println(Math.abs(dweightsApprox[l][n] - dweights[l][n]));
+                        pass = false;
 
                     // Reset weight
                     weights[l][pn][n] += e;
                 }
             }
         }
+
+        Spinner.spin();
+        Logger.print(pass ? "Good\n" : "Bad\n");
     }
 
     /**
-     * Returns an array representation of the desired output for the output layer, setting the values
-     * at the indices passed to 1, and the rest to 0.
+     * Returns an approximation of the output layer, with 'numOfActivations' neurons set to 1.0, and the rest to 0.0
      *
-     * @param neurons Neurons that should be activated on the output layer
-     * @param size Size of the output layer
-     * @return Array representation of the desired output layer
+     * @param input Input to forward propagate with
+     * @param numOfActivations Number of neurons that should be activated (same number as in your expected output)
+     * @return Array representing an approximation of the last layer
      */
-    private double[] desiredOutputLayerActiv(int size, int... neurons) {
-        double[] d = new double[size];
-        for (int n : neurons)
-            d[n] = 1.0;
-        return d;
+    private double[] getOutputLayerActiv(double[] input, int numOfActivations) {
+        forward(input);
+
+        double[] approxOut = new double[activ[activ.length - 1].length];
+        int[] indices = new int[numOfActivations];
+        int ll = activ.length - 1; // Last layer
+
+        for (int n = 0; n < activ[activ.length - 1].length; n++) {
+            int activNeuron = -1;
+            for (int i = numOfActivations - 1; i >= 0; i--) {
+                if (activ[ll][n] <= activ[ll][indices[i]])
+                    break;
+                else
+                    activNeuron = i;
+            }
+            if (activNeuron != -1)
+                indices[activNeuron] = n;
+        }
+        
+        for (int i : indices)
+            approxOut[i] = 1d;
+        return approxOut;
     }
 
-    /**
-     * Returns the index of the neuron on the output layer with the highest value
-     *
-     * @return Index corresponding to the neuron on the output layer with the highest value
-     */
-    private int getOutputNeuron() {
-        int index = 0;
-        // Searches through output layer for brightest neuron
-        for (int j = 1; j < activ[activ.length - 1].length; j++)
-            if (activ[activ.length - 1][j] > activ[activ.length - 1][index])
-                index = j;
-        return index;
-    }
-
-    String getResults() {
+    String getOutputLayerStr() {
         StringBuilder str = new StringBuilder("[");
         for (int i = 0; i < activ[activ.length - 1].length; i++)
             str.append(activ[activ.length - 1][i]).append(i == activ[activ.length - 1].length - 1 ? "" : ", ");

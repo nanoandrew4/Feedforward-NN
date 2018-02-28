@@ -31,34 +31,12 @@ public class IOHandler {
     }
 
     /**
-     * See deserializeLabels(InputStream is).
-     *
-     * @param path Path to serialized file
-     * @return 1D integer array stored in file at 'path', representing the labels for a set of data
-     */
-    protected static int[] deserializeLabels(String path) {
-        return (int[]) deserialize(path);
-    }
-
-    /**
-     * Converts returned object to a 1D int array and returns it.
-     * Used to deserialize the labels from MNIST dataset (they have been converted to a 1D array and serialized)
-     * The values stored in the array represent the labels for their respective digits.
-     *
-     * @param is Input stream to read file from
-     * @return 1D integer array read from 'is', representing the labels for a set of data
-     */
-    protected static int[] deserializeLabels(InputStream is) {
-        return (int[]) deserialize(is);
-    }
-
-    /**
      * See deserializeNums(InputStream is).
      *
      * @param path Path to serialized file
      * @return 2D float array stored in file at 'path', representing the digit images
      */
-    protected static double[][] deserializeNums(String path) {
+    protected static double[][] deserialize2DDoubleArr(String path) {
         return (double[][]) deserialize(path);
     }
 
@@ -71,7 +49,7 @@ public class IOHandler {
      * @param is Input stream to read file from
      * @return 2D float array read from 'is', representing the digit images
      */
-    protected static double[][] deserializeNums(InputStream is) {
+    protected static double[][] deserialize2DDoubleArr(InputStream is) {
         return (double[][]) deserialize(is);
     }
 
@@ -82,7 +60,7 @@ public class IOHandler {
      * @param path Path to file
      * @return Object stored in file at 'path'
      */
-    protected static Object deserialize(String path) {
+    static Object deserialize(String path) {
         try {
             return deserialize(new FileInputStream(path));
         } catch (FileNotFoundException e) {
@@ -99,13 +77,11 @@ public class IOHandler {
      * @param is Input stream for serialized data. Useful to use with Class.class.getClassLoader().getResourceAsStream()
      * @return Object contained within the file
      */
-    protected static Object deserialize(InputStream is) {
-        print("Loading serialized data... ");
+    static Object deserialize(InputStream is) {
         try {
             ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(is));
             Object o = ois.readObject();
             ois.close();
-            print("Done\n");
             return o;
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
